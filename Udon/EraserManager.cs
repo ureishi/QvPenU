@@ -6,12 +6,11 @@ using VRC.Udon.Common.Interfaces;
 
 namespace QvPen.Udon
 {
-    public class PenManager : UdonSharpBehaviour
+    public class EraserManager : UdonSharpBehaviour
     {
-        [SerializeField] private Pen pen;
+        [SerializeField] private Eraser eraser;
 
         [SerializeField] private GameObject respawnButton;
-        [SerializeField] private GameObject clearButton;
         [SerializeField] private GameObject inUseUI;
         [SerializeField] private Text textInUse;
 
@@ -21,14 +20,14 @@ namespace QvPen.Udon
         {
             localPlayer = Networking.LocalPlayer;
 
-            pen.Init(this);
+            eraser.Init(this);
         }
 
         public override void OnPlayerJoined(VRCPlayerApi player)
         {
-            if (!localPlayer.IsOwner(pen.gameObject)) return;
+            if (!localPlayer.IsOwner(eraser.gameObject)) return;
 
-            if (pen.IsHeld())
+            if (eraser.IsHeld())
             {
                 SendCustomNetworkEvent(NetworkEventTarget.All, nameof(StartUsing));
             }
@@ -36,9 +35,9 @@ namespace QvPen.Udon
 
         public override void OnPlayerLeft(VRCPlayerApi player)
         {
-            if (!localPlayer.IsOwner(pen.gameObject)) return;
+            if (!localPlayer.IsOwner(eraser.gameObject)) return;
 
-            if (!pen.IsHeld())
+            if (!eraser.IsHeld())
             {
                 SendCustomNetworkEvent(NetworkEventTarget.All, nameof(EndUsing));
             }
@@ -47,17 +46,15 @@ namespace QvPen.Udon
         public void StartUsing()
         {
             respawnButton.SetActive(false);
-            clearButton.SetActive(false);
             inUseUI.SetActive(true);
 
-            var owner = Networking.GetOwner(pen.gameObject);
+            var owner = Networking.GetOwner(eraser.gameObject);
             textInUse.text = owner != null ? owner.displayName : "Occupied";
         }
 
         public void EndUsing()
         {
             respawnButton.SetActive(true);
-            clearButton.SetActive(true);
             inUseUI.SetActive(false);
 
             textInUse.text = "";
@@ -65,18 +62,7 @@ namespace QvPen.Udon
 
         public void ResetAll()
         {
-            pen.Respawn();
-            pen.Clear();
-        }
-
-        public void ClearAll()
-        {
-            pen.Clear();
-        }
-
-        public void SetUseDoubleClick(bool value)
-        {
-            pen.SetUseDoubleClick(value);
+            eraser.Respawn();
         }
     }
 }
