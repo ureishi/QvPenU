@@ -10,11 +10,11 @@
 // 2019-09-26 customized for QvPen v2.
 // 2019-09-09 customized for QvPen.
 
-Shader "Unlit/rounded_trail_for_qv_pen"
+Shader "QvPen/rounded_trail_for_qv_pen"
 {
 	Properties
 	{
-		_Width ("Width", Float) = 0.03
+		_Width ("Width", Float) = 0.005
 	}
 	SubShader
 	{
