@@ -1,3 +1,5 @@
+using System;
+using VRC.Udon.Common;
 using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,6 +13,8 @@ namespace QvPen.Udon
         [SerializeField]
         private Pen pen;
 
+        public Gradient colorGradient = new Gradient();
+
         [SerializeField]
         private GameObject respawnButton;
         [SerializeField]
@@ -20,9 +24,7 @@ namespace QvPen.Udon
         [SerializeField]
         private Text textInUse;
 
-        private VRCPlayerApi localPlayer;
-
-        public void Boot(Settings settings)
+        public void Init(Settings settings)
         {
             // Wait for class inheritance
             pen.Init(this, settings);
@@ -30,12 +32,7 @@ namespace QvPen.Udon
 
         public override void OnPlayerJoined(VRCPlayerApi player)
         {
-            if (player.isLocal)
-            {
-                localPlayer = player;
-            }
-
-            if (!localPlayer.IsOwner(pen.gameObject))
+            if (!Networking.LocalPlayer.IsOwner(pen.gameObject))
                 return;
 
             if (pen.IsHeld())
@@ -46,7 +43,7 @@ namespace QvPen.Udon
 
         public override void OnPlayerLeft(VRCPlayerApi player)
         {
-            if (!localPlayer.IsOwner(pen.gameObject))
+            if (!Networking.LocalPlayer.IsOwner(pen.gameObject))
                 return;
 
             if (!pen.IsHeld())
@@ -71,7 +68,7 @@ namespace QvPen.Udon
             clearButton.SetActive(true);
             inUseUI.SetActive(false);
 
-            textInUse.text = "";
+            textInUse.text = string.Empty;
         }
 
         public void ResetAll()
@@ -89,5 +86,112 @@ namespace QvPen.Udon
         {
             pen.SetUseDoubleClick(value);
         }
+
+        #region Network
+
+        [UdonSynced, NonSerialized]
+        public Vector3[]
+            syncPositions = new Vector3[0];
+
+        public void printps()
+        {
+            foreach (var p in syncPositions) P(p);
+        }
+
+        public override void OnPreSerialization()
+        {
+            P($"{nameof(OnPreSerialization)}()");
+            printps();
+        }
+
+        public override void OnPostSerialization(SerializationResult result)
+        {
+            P($"{nameof(OnPostSerialization)}(result: (success: {result.success}, byteCount{result.byteCount:#,0}))");
+
+            if (result.success)
+            {
+
+            }
+            else
+            {
+
+            }
+        }
+
+        public override void OnDeserialization()
+        {
+            P($"{nameof(OnDeserialization)}()");
+
+            printps();
+
+            pen.CreateInkInstance(syncPositions);
+        }
+
+        public override void OnOwnershipTransferred(VRCPlayerApi player)
+        {
+            P($"{nameof(OnOwnershipTransferred)}(player: {player.displayName})");
+        }
+
+        public override bool OnOwnershipRequest(VRCPlayerApi requestingPlayer, VRCPlayerApi requestedOwner)
+        {
+            P($"{nameof(OnOwnershipRequest)}(requestingPlayer: {requestingPlayer.displayName}, requestedOwner: {requestedOwner.displayName})");
+
+            return true;
+        }
+
+        #endregion Network
+
+
+        #region Log
+
+        public readonly string
+            className = $"{nameof(QvPen)}.{nameof(QvPen.Udon)}.{nameof(QvPen.Udon.PenManager)}";
+
+        [SerializeField]
+        private bool
+            doWriteDebugLog = false;
+
+        private Color
+            C_APP = new Color(0xf2, 0x7d, 0x4a, 0xff) / 0xff,
+            C_LOG = new Color(0x00, 0x8b, 0xca, 0xff) / 0xff,
+            C_WAR = new Color(0xfe, 0xeb, 0x5b, 0xff) / 0xff,
+            C_ERR = new Color(0xe0, 0x30, 0x5a, 0xff) / 0xff;
+
+        private readonly string
+            CTagEnd = "</color>";
+
+        private void P(object o)
+        {
+            if (doWriteDebugLog)
+                Debug.Log($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
+        }
+
+        private void P_LOG(object o)
+        {
+            Debug.Log($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
+        }
+
+        private void P_WAR(object o)
+        {
+            Debug.LogWarning($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_WAR)}{o}{CTagEnd}", this);
+        }
+
+        private void P_ERR(object o)
+        {
+            Debug.LogError($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_ERR)}{o}{CTagEnd}", this);
+        }
+
+        private string CTag(Color c)
+        {
+            return $"<color=\"#{ToHtmlStringRGB(c)}\">";
+        }
+
+        private string ToHtmlStringRGB(Color c)
+        {
+            c *= 0xff;
+            return $"{Mathf.RoundToInt(c.r):x2}{Mathf.RoundToInt(c.g):x2}{Mathf.RoundToInt(c.b):x2}";
+        }
+
+        #endregion
     }
 }

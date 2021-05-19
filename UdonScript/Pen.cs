@@ -1,6 +1,9 @@
+using System;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
+using VRC.Udon.Common;
+using VRC.SDK3.Components;
 using VRC.Udon.Common.Interfaces;
 
 namespace QvPen.Udon
@@ -8,94 +11,145 @@ namespace QvPen.Udon
     public class Pen : UdonSharpBehaviour
     {
         [SerializeField]
-        private GameObject inkPrefab;
-        [SerializeField]
-        private GameObject inkCollider;
-        [SerializeField]
-        private Eraser eraser;
+        private Material
+            pcInkMaterial,
+            questInkMaterial;
 
         [SerializeField]
-        private Transform inkPosition;
+        private TrailRenderer
+            trailRenderer;
         [SerializeField]
-        private Transform spawnTarget;
+        private LineRenderer
+            linePrefab;
         [SerializeField]
-        private Transform inkPool;
+        private MeshCollider
+            colliderPrefab;
+        [SerializeField]
+        private Eraser
+            eraser;
+
+        private GameObject
+            lineInstance;
 
         [SerializeField]
-        private float followSpeed = 32;
+        private Transform
+            inkPosition;
+        [SerializeField]
+        private Transform
+            inkPool;
 
-        private bool isUser;
-        private VRC_Pickup pickup;
+        [SerializeField]
+        private float
+            followSpeed = 32;
+
+        // Components
+        private bool
+            isUser;
+        private VRC_Pickup
+            pickup;
+        private VRCObjectSync
+            objectSync;
 
         // PenManager
-        private PenManager penManager;
+        private PenManager
+            penManager;
 
         // Ink
-        private GameObject inkInstance;
-        private GameObject justBeforeInk;
-        private int inkCount;
+        private GameObject
+            justBeforeInk;
+        private int
+            inkNo;
 
         // Eraser
-        private readonly float eraserScale = 0.2f;
+        private readonly float
+            eraserScale = 0.2f;
 
         // Double click
-        private bool useDoubleClick = true;
-        private readonly float clickInterval = 0.184f;
-        private float prevClickTime;
+        private bool
+            useDoubleClick = true;
+        private readonly float
+            clickInterval = 0.184f;
+        private float
+            prevClickTime;
 
         // State
-        private const int StatePenIdle = 0;
-        private const int StatePenUsing = 1;
-        private const int StateEraserIdle = 2;
-        private const int StateEraserUsing = 3;
-        private int currentState = StatePenIdle;
+        private const int
+            StatePenIdle = 0,
+            StatePenUsing = 1,
+            StateEraserIdle = 2,
+            StateEraserUsing = 3;
+        private int
+            currentState = StatePenIdle;
 
-        private int inkLayer;
-        private string inkPrefix;
-        private string inkPoolName;
-        private float inkWidth;
+        private int
+            inkLayer;
+        private string
+            inkPrefix;
+        private string
+            inkPoolName;
+        private float
+            inkWidth;
 
         public void Init(PenManager penManager, Settings settings)
         {
+            this.penManager = penManager;
+
             inkLayer = settings.inkLayer;
             inkPrefix = settings.inkPrefix;
             inkPoolName = settings.inkPoolName;
             inkWidth = settings.inkWidth;
 
-            this.penManager = penManager;
-
-            inkCollider.layer = inkLayer;
+            colliderPrefab.gameObject.layer = inkLayer;
             inkPool.name = inkPoolName;
 
-            inkPrefab.SetActive(false);
-
-            var trailRenderer = inkPrefab.GetComponent<TrailRenderer>();
-            trailRenderer.emitting = true;
+            {
 #if UNITY_ANDROID
-            var material = settings.questInkMaterial;
-            trailRenderer.widthMultiplier = inkWidth;
-#else
-            var material = settings.pcInkMaterial;
-            if (material.shader == settings.roundedTrail)
-            {
-                trailRenderer.widthMultiplier = 0f;
-                material.SetFloat("_Width", inkWidth);
-            }
-            else
-            {
+                var material = settings.questInkMaterial;
                 trailRenderer.widthMultiplier = inkWidth;
-            }
+#else
+                var material = pcInkMaterial;
+                if (material.shader == settings.roundedTrail)
+                {
+                    trailRenderer.widthMultiplier = 0f;
+                    material.SetFloat("_Width", inkWidth);
+                }
+                else
+                {
+                    trailRenderer.widthMultiplier = inkWidth;
+                }
 #endif
-            trailRenderer.material = material;
+                trailRenderer.material = material;
+                trailRenderer.colorGradient = penManager.colorGradient;
+            }
+
+            {
+#if UNITY_ANDROID
+                var material = settings.questInkMaterial;
+                linePrefab.widthMultiplier = inkWidth;
+#else
+                var material = pcInkMaterial;
+                if (material.shader == settings.roundedTrail)
+                {
+                    linePrefab.widthMultiplier = 0f;
+                    material.SetFloat("_Width", inkWidth);
+                }
+                else
+                {
+                    linePrefab.widthMultiplier = inkWidth;
+                }
+#endif
+                linePrefab.material = material;
+                linePrefab.colorGradient = penManager.colorGradient;
+            }
 
             pickup = (VRC_Pickup)GetComponent(typeof(VRC_Pickup));
             pickup.InteractionText = nameof(Pen);
             pickup.UseText = "Draw";
 
-            // Wait for class inheritance
-            // PenManager : Manager, EraserManager : Manager, Init(Manager manager)
-            eraser.Init(null, settings);
+            objectSync = (VRCObjectSync)GetComponent(typeof(VRCObjectSync));
 
+            settings.inkPool = inkPool;
+            eraser.Init(null, settings);
             eraser.gameObject.SetActive(false);
             eraser.transform.SetParent(inkPosition);
             eraser.transform.localPosition = Vector3.zero;
@@ -105,15 +159,18 @@ namespace QvPen.Udon
 
         private void LateUpdate()
         {
+            if (!pickup.IsHeld)
+                return;
+
             if (isUser)
             {
-                spawnTarget.position = Vector3.Lerp(spawnTarget.position, inkPosition.position, Time.deltaTime * followSpeed);
-                spawnTarget.rotation = Quaternion.Lerp(spawnTarget.rotation, inkPosition.rotation, Time.deltaTime * followSpeed);
+                trailRenderer.transform.position = Vector3.Lerp(trailRenderer.transform.position, inkPosition.position, Time.deltaTime * followSpeed);
+                trailRenderer.transform.rotation = Quaternion.Lerp(trailRenderer.transform.rotation, inkPosition.rotation, Time.deltaTime * followSpeed);
             }
             else
             {
-                spawnTarget.position = inkPosition.position;
-                spawnTarget.rotation = inkPosition.rotation;
+                trailRenderer.transform.position = inkPosition.position;
+                trailRenderer.transform.rotation = inkPosition.rotation;
             }
         }
 
@@ -122,6 +179,10 @@ namespace QvPen.Udon
         public override void OnPickup()
         {
             isUser = true;
+
+            if (!Networking.IsOwner(penManager.gameObject))
+                Networking.SetOwner(Networking.LocalPlayer, penManager.gameObject);
+
             penManager.SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PenManager.StartUsing));
 
             SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ChangeStateToPenIdle));
@@ -130,6 +191,7 @@ namespace QvPen.Udon
         public override void OnDrop()
         {
             isUser = false;
+
             penManager.SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PenManager.EndUsing));
 
             SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ChangeStateToPenIdle));
@@ -200,12 +262,13 @@ namespace QvPen.Udon
             SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ChangeStateToPenIdle));
         }
 
-        #endregion
-
         public void DestroyJustBeforeInk()
         {
             Destroy(justBeforeInk);
+            inkNo--;
         }
+
+        #endregion
 
         #region ChangeState
 
@@ -287,60 +350,49 @@ namespace QvPen.Udon
 
         #endregion
 
-        public bool IsHeld()
-        {
-            return pickup.IsHeld;
-        }
+        public bool IsHeld() => pickup.IsHeld;
 
         public void Respawn()
         {
             pickup.Drop();
+
             if (Networking.LocalPlayer.IsOwner(gameObject))
-            {
-                transform.localPosition = Vector3.zero;
-                transform.localRotation = Quaternion.identity;
-            }
+                objectSync.Respawn();
         }
 
         public void Clear()
         {
-            for (var i = 0; i < inkPool.childCount; i++)
-            {
-                Destroy(inkPool.GetChild(i).gameObject);
-            }
+            foreach (Transform ink in inkPool)
+                Destroy(ink.gameObject);
+
+            inkNo = 0;
         }
 
         private void StartDrawing()
         {
-            inkInstance = VRCInstantiate(inkPrefab);
-            inkInstance.name = "InkMesh";
-            inkInstance.transform.SetParent(spawnTarget);
-            inkInstance.transform.localPosition = Vector3.zero;
-            inkInstance.transform.localRotation = Quaternion.identity;
-            inkInstance.transform.localScale = Vector3.one;
-            inkInstance.GetComponent<TrailRenderer>().enabled = true;
-            inkInstance.SetActive(true);
+            trailRenderer.gameObject.SetActive(true);
         }
 
         private void FinishDrawing()
         {
-            if (inkInstance != null)
+            P($"{nameof(FinishDrawing)}()");
+
+            if (isUser)
             {
-                inkInstance.name = $"{inkPrefix} ({inkCount++})";
-                inkInstance.transform.SetParent(inkPool);
+                var positions = new Vector3[trailRenderer.positionCount];
 
-                var inkColliderInstance = VRCInstantiate(inkCollider);
-                inkColliderInstance.name = "inkCollider";
-                inkColliderInstance.transform.SetParent(inkInstance.transform);
-                inkColliderInstance.transform.localPosition = Vector3.zero;
-                inkColliderInstance.transform.localRotation = Quaternion.identity;
-                inkColliderInstance.transform.localScale = Vector3.one;
+                trailRenderer.GetPositions(positions);
 
-                CreateInkCollider(inkColliderInstance);
+                Array.Reverse(positions);
+
+                penManager.syncPositions = positions;
+                penManager.RequestSerialization();
+
+                CreateInkInstance(positions);
             }
 
-            justBeforeInk = inkInstance;
-            inkInstance = null;
+            trailRenderer.gameObject.SetActive(false);
+            trailRenderer.Clear();
         }
 
         private void StartErasing()
@@ -364,69 +416,109 @@ namespace QvPen.Udon
             eraser.gameObject.SetActive(true);
         }
 
-        private void CreateInkCollider(GameObject inkCollider)
+        public void CreateInkInstance(Vector3[] positions)
         {
-            var meshCollider = inkCollider.GetComponent<MeshCollider>();
+            if (positions.Length == 0)
+                return;
 
-            var trailRenderer = inkInstance.GetComponent<TrailRenderer>();
+            lineInstance = VRCInstantiate(linePrefab.gameObject);
+            lineInstance.name = $"{inkPrefix} ({inkNo++})";
+            lineInstance.transform.SetParent(inkPool);
+            lineInstance.transform.position = positions[0];
+            lineInstance.transform.localRotation = Quaternion.identity;
+            lineInstance.transform.localScale = Vector3.one;
 
-            var positionCount = Mathf.Max(trailRenderer.positionCount, 2);
+            var line = lineInstance.GetComponent<LineRenderer>();
+            line.positionCount = positions.Length;
+            line.SetPositions(positions);
 
-            const int verticesPerPoint = 3;
-            const int trianglesPerPoint = 3;
-            var positions = new Vector3[positionCount];
-            var vertices = new Vector3[positionCount * verticesPerPoint];
-            var triangles = new int[positionCount * trianglesPerPoint];
+            CreateInkCollider(line);
 
-            var colliderWidth = inkWidth;
+            lineInstance.gameObject.SetActive(true);
 
-            trailRenderer.GetPositions(positions);
-            if (positionCount == 2)
-            {
-                var offsetZ = Vector3.forward * colliderWidth / 2f;
-                positions[0] = inkCollider.transform.position - offsetZ;
-                positions[1] = inkCollider.transform.position + offsetZ;
-            }
+            justBeforeInk = lineInstance;
+        }
 
-            // Create vertices
-            var p0 = inkCollider.transform.InverseTransformPoint(positions[0]);
-            for (var i = 0; i < positionCount - 1; i++)
-            {
-                var p1 = inkCollider.transform.InverseTransformPoint(positions[i + 1]);
+        private void CreateInkCollider(LineRenderer lineRenderer)
+        {
+            P($"{nameof(CreateInkCollider)}(lineRenderer: )");
 
-                var v = p1 - p0;
-                var x = Vector3.ProjectOnPlane(Vector3.right, v);
+            var colliderInstance = VRCInstantiate(colliderPrefab.gameObject);
+            colliderInstance.name = "InkCollider";
+            colliderInstance.transform.SetParent(lineInstance.transform);
+            colliderInstance.transform.position = Vector3.zero;
+            colliderInstance.transform.rotation = Quaternion.identity;
+            colliderInstance.transform.localScale = Vector3.one;
 
-                if (x == Vector3.zero)
-                {
-                    x = Vector3.ProjectOnPlane(Vector3.forward, v);
-                }
+            var meshCollider = colliderInstance.GetComponent<MeshCollider>();
 
-                x = x.normalized * colliderWidth / 2f;
-
-                vertices[i * verticesPerPoint + 0] = p0 + x;
-                vertices[i * verticesPerPoint + 1] = p1;
-                vertices[i * verticesPerPoint + 2] = p0 - x;
-
-                p0 = p1;
-            }
-
-            // Create triangles
-            for (var i = 0; i < positionCount; i++)
-            {
-                triangles[i * trianglesPerPoint + 0] = i * verticesPerPoint + 0;
-                triangles[i * trianglesPerPoint + 1] = i * verticesPerPoint + 1;
-                triangles[i * trianglesPerPoint + 2] = i * verticesPerPoint + 2;
-            }
-
-            // Create mesh
             var mesh = new Mesh();
-            mesh.vertices = vertices;
-            mesh.triangles = triangles;
+            var widthMultiplier = lineRenderer.widthMultiplier;
 
-            mesh.RecalculateNormals();
+            lineRenderer.widthMultiplier = inkWidth;
+            lineRenderer.BakeMesh(mesh);
+            lineRenderer.widthMultiplier = widthMultiplier;
 
             meshCollider.sharedMesh = mesh;
+            meshCollider.GetComponent<MeshFilter>().sharedMesh = mesh;
         }
+
+        #region Log
+
+        [HideInInspector]
+        public readonly string
+            appname = $"{nameof(QvPen)}.{nameof(QvPen.Udon)}.{nameof(QvPen.Udon.Pen)}";
+        [HideInInspector]
+        public string
+            version;
+        public TextAsset
+            versionText;
+
+        [SerializeField]
+        private bool
+            doWriteDebugLog = false;
+
+        private Color
+            C_APP = new Color(0xf2, 0x7d, 0x4a, 0xff) / 0xff,
+            C_LOG = new Color(0x00, 0x8b, 0xca, 0xff) / 0xff,
+            C_WAR = new Color(0xfe, 0xeb, 0x5b, 0xff) / 0xff,
+            C_ERR = new Color(0xe0, 0x30, 0x5a, 0xff) / 0xff;
+
+        private readonly string
+            CTagEnd = "</color>";
+
+        private void P(object o)
+        {
+            if (doWriteDebugLog)
+                Debug.Log($"[{CTag(C_APP)}{appname}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
+        }
+
+        private void P_LOG(object o)
+        {
+            Debug.Log($"[{CTag(C_APP)}{appname}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
+        }
+
+        private void P_WAR(object o)
+        {
+            Debug.LogWarning($"[{CTag(C_APP)}{appname}{CTagEnd}] {CTag(C_WAR)}{o}{CTagEnd}", this);
+        }
+
+        private void P_ERR(object o)
+        {
+            Debug.LogError($"[{CTag(C_APP)}{appname}{CTagEnd}] {CTag(C_ERR)}{o}{CTagEnd}", this);
+        }
+
+        private string CTag(Color c)
+        {
+            return $"<color=\"#{ToHtmlStringRGB(c)}\">";
+        }
+
+        private string ToHtmlStringRGB(Color c)
+        {
+            c *= 0xff;
+            return $"{Mathf.RoundToInt(c.r):x2}{Mathf.RoundToInt(c.g):x2}{Mathf.RoundToInt(c.b):x2}";
+        }
+
+        #endregion
     }
 }

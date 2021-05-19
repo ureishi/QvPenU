@@ -7,61 +7,53 @@ namespace QvPen.Udon
 {
     public class Settings : UdonSharpBehaviour
     {
-        [SerializeField]
-        private TextAsset qvPenVersion;
-        [HideInInspector]
-        public string VERSION;
+        public readonly string 
+            VERSION = "UN v0.1";
 
         [SerializeField]
-        private TextAsset udonSharpVersion;
+        private Text 
+            information;
 
         [SerializeField]
-        private Text information;
+        private Transform
+            pensParent,
+            erasersParent;
 
-        [SerializeField]
-        private Transform pensParent;
-        [SerializeField]
-        private Transform erasersParent;
+        [NonSerialized]
+        public PenManager[] 
+            penManagers;
 
-        [HideInInspector]
-        public PenManager[] penManagers;
-        [HideInInspector]
-        public EraserManager[] eraserManagers;
+        [NonSerialized]
+        public EraserManager[] 
+            eraserManagers;
 
         // Layer 8 : Interactive
         // Layer 9 : Player
-        [SerializeField]
-        public int inkLayer = 9;
-        [SerializeField]
-        public int eraserLayer = 8;
+        public int
+            inkLayer = 9,
+            eraserLayer = 8;
 
-        [SerializeField]
-        public Material pcInkMaterial;
-        [SerializeField]
-        public Material questInkMaterial;
+        public readonly string 
+            inkPrefix = "Ink";
+        [NonSerialized]
+        public string 
+            inkPoolName;
 
-        [HideInInspector]
-        public readonly string inkPrefix = "Ink";
-        [HideInInspector]
-        public string inkPoolName;
+        public float 
+            inkWidth = 0.005f;
 
-        [SerializeField]
-        public float inkWidth = 0.005f;
+        public Shader 
+            roundedTrail;
 
-        [SerializeField]
-        public Shader roundedTrail;
+        [NonSerialized]
+        public Transform 
+            inkPool;
 
         private void Start()
         {
-            VERSION = qvPenVersion.text.Trim();
-            Debug.Log($"{nameof(QvPen)} {VERSION}");
+            P_LOG($"{nameof(QvPen)} {VERSION} - ureishi");
 
-            if (udonSharpVersion)
-            {
-                Debug.Log($"Written in {nameof(UdonSharp)} {udonSharpVersion.text.Trim()} - Merlin");
-            }
-
-            information.text += $"\n<size=14>{VERSION}</size>";
+            information.text = $"<size=20>{nameof(QvPen)}</size>\n<size=14>{VERSION}</size>";
 
             inkPoolName = $"obj_{Guid.NewGuid()}";
 
@@ -70,13 +62,65 @@ namespace QvPen.Udon
 
             foreach (var penManager in penManagers)
             {
-                penManager.Boot(this);
+                penManager.Init(this);
             }
 
             foreach (var eraserManager in eraserManagers)
             {
-                eraserManager.Boot(this);
+                eraserManager.Init(this);
             }
         }
+
+        #region Log
+
+        public readonly string
+            className = $"{nameof(QvPen)}.{nameof(QvPen.Udon)}.{nameof(QvPen.Udon.Settings)}";
+
+        [SerializeField]
+        private bool
+            doWriteDebugLog = false;
+
+        private Color
+            C_APP = new Color(0xf2, 0x7d, 0x4a, 0xff) / 0xff,
+            C_LOG = new Color(0x00, 0x8b, 0xca, 0xff) / 0xff,
+            C_WAR = new Color(0xfe, 0xeb, 0x5b, 0xff) / 0xff,
+            C_ERR = new Color(0xe0, 0x30, 0x5a, 0xff) / 0xff;
+
+        private readonly string
+            CTagEnd = "</color>";
+
+        private void P(object o)
+        {
+            if (doWriteDebugLog)
+                Debug.Log($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
+        }
+
+        private void P_LOG(object o)
+        {
+            Debug.Log($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
+        }
+
+        private void P_WAR(object o)
+        {
+            Debug.LogWarning($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_WAR)}{o}{CTagEnd}", this);
+        }
+
+        private void P_ERR(object o)
+        {
+            Debug.LogError($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_ERR)}{o}{CTagEnd}", this);
+        }
+
+        private string CTag(Color c)
+        {
+            return $"<color=\"#{ToHtmlStringRGB(c)}\">";
+        }
+
+        private string ToHtmlStringRGB(Color c)
+        {
+            c *= 0xff;
+            return $"{Mathf.RoundToInt(c.r):x2}{Mathf.RoundToInt(c.g):x2}{Mathf.RoundToInt(c.b):x2}";
+        }
+
+        #endregion
     }
 }

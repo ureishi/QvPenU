@@ -17,6 +17,7 @@ namespace QvPen.Udon
 #pragma warning restore CS0108
         private VRC_Pickup pickup;
 
+        private bool isUser;
         private bool isErasing;
 
         // EraserManager
@@ -27,16 +28,17 @@ namespace QvPen.Udon
         private string inkPrefix;
         private string inkPoolName;
         private float inkWidth;
+        private Transform inkPool;
 
         public void Init(EraserManager eraserManager, Settings settings)
         {
+            this.eraserManager = eraserManager;
+
             inkLayer = settings.inkLayer;
             eraserLayer = settings.eraserLayer;
             inkPrefix = settings.inkPrefix;
             inkPoolName = settings.inkPoolName;
             inkWidth = settings.inkWidth;
-
-            this.eraserManager = eraserManager;
 
             gameObject.layer = eraserLayer;
 
@@ -51,6 +53,7 @@ namespace QvPen.Udon
             else
             {
                 renderer.sharedMaterial = normal;
+                inkPool = settings.inkPool;
             }
         }
 
@@ -112,14 +115,14 @@ namespace QvPen.Udon
                 other.transform.parent.parent.name == inkPoolName
                 )
             {
+                if (inkPool && other.transform.parent.parent != inkPool)
+                    return;
+
                 Destroy(other.transform.parent.gameObject);
             }
         }
 
-        public bool IsHeld()
-        {
-            return pickup.IsHeld;
-        }
+        public bool IsHeld() => pickup.IsHeld;
 
         public void Respawn()
         {

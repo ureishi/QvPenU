@@ -20,7 +20,7 @@ namespace QvPen.Udon
 
         private VRCPlayerApi localPlayer;
 
-        public void Boot(Settings settings)
+        public void Init(Settings settings)
         {
             // Wait for class inheritance
             eraser.Init(this, settings);
@@ -67,7 +67,7 @@ namespace QvPen.Udon
             respawnButton.SetActive(true);
             inUseUI.SetActive(false);
 
-            textInUse.text = "";
+            textInUse.text = string.Empty;
         }
 
         public void ResetAll()
