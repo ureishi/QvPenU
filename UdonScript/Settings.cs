@@ -7,11 +7,11 @@ namespace QvPen.Udon
 {
     public class Settings : UdonSharpBehaviour
     {
-        public readonly string 
+        public readonly string
             VERSION = "UN v0.1";
 
         [SerializeField]
-        private Text 
+        private Text
             information;
 
         [SerializeField]
@@ -20,11 +20,11 @@ namespace QvPen.Udon
             erasersParent;
 
         [NonSerialized]
-        public PenManager[] 
+        public PenManager[]
             penManagers;
 
         [NonSerialized]
-        public EraserManager[] 
+        public EraserManager[]
             eraserManagers;
 
         // Layer 8 : Interactive
@@ -33,20 +33,17 @@ namespace QvPen.Udon
             inkLayer = 9,
             eraserLayer = 8;
 
-        public readonly string 
+        public readonly string
             inkPrefix = "Ink";
         [NonSerialized]
-        public string 
+        public string
             inkPoolName;
 
-        public float 
-            inkWidth = 0.005f;
-
-        public Shader 
+        public Shader
             roundedTrail;
 
         [NonSerialized]
-        public Transform 
+        public Transform
             inkPool;
 
         private void Start()
@@ -76,10 +73,6 @@ namespace QvPen.Udon
         public readonly string
             className = $"{nameof(QvPen)}.{nameof(QvPen.Udon)}.{nameof(QvPen.Udon.Settings)}";
 
-        [SerializeField]
-        private bool
-            doWriteDebugLog = false;
-
         private Color
             C_APP = new Color(0xf2, 0x7d, 0x4a, 0xff) / 0xff,
             C_LOG = new Color(0x00, 0x8b, 0xca, 0xff) / 0xff,
@@ -91,8 +84,7 @@ namespace QvPen.Udon
 
         private void P(object o)
         {
-            if (doWriteDebugLog)
-                Debug.Log($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
+            Debug.Log($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
         }
 
         private void P_LOG(object o)

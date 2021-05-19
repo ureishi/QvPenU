@@ -1,20 +1,14 @@
 using System;
 using UdonSharp;
 using UnityEngine;
-using VRC.SDKBase;
-using VRC.Udon.Common;
 using VRC.SDK3.Components;
+using VRC.SDKBase;
 using VRC.Udon.Common.Interfaces;
 
 namespace QvPen.Udon
 {
     public class Pen : UdonSharpBehaviour
     {
-        [SerializeField]
-        private Material
-            pcInkMaterial,
-            questInkMaterial;
-
         [SerializeField]
         private TrailRenderer
             trailRenderer;
@@ -97,17 +91,18 @@ namespace QvPen.Udon
             inkLayer = settings.inkLayer;
             inkPrefix = settings.inkPrefix;
             inkPoolName = settings.inkPoolName;
-            inkWidth = settings.inkWidth;
+
+            inkWidth = penManager.inkWidth;
 
             colliderPrefab.gameObject.layer = inkLayer;
             inkPool.name = inkPoolName;
 
             {
 #if UNITY_ANDROID
-                var material = settings.questInkMaterial;
+                var material = penManager.questInkMaterial;
                 trailRenderer.widthMultiplier = inkWidth;
 #else
-                var material = pcInkMaterial;
+                var material = penManager.pcInkMaterial;
                 if (material.shader == settings.roundedTrail)
                 {
                     trailRenderer.widthMultiplier = 0f;
@@ -124,10 +119,10 @@ namespace QvPen.Udon
 
             {
 #if UNITY_ANDROID
-                var material = settings.questInkMaterial;
+                var material = penManager.questInkMaterial;
                 linePrefab.widthMultiplier = inkWidth;
 #else
-                var material = pcInkMaterial;
+                var material = penManager.pcInkMaterial;
                 if (material.shader == settings.roundedTrail)
                 {
                     linePrefab.widthMultiplier = 0f;
@@ -375,8 +370,6 @@ namespace QvPen.Udon
 
         private void FinishDrawing()
         {
-            P($"{nameof(FinishDrawing)}()");
-
             if (isUser)
             {
                 var positions = new Vector3[trailRenderer.positionCount];
@@ -441,8 +434,6 @@ namespace QvPen.Udon
 
         private void CreateInkCollider(LineRenderer lineRenderer)
         {
-            P($"{nameof(CreateInkCollider)}(lineRenderer: )");
-
             var colliderInstance = VRCInstantiate(colliderPrefab.gameObject);
             colliderInstance.name = "InkCollider";
             colliderInstance.transform.SetParent(lineInstance.transform);
@@ -460,65 +451,8 @@ namespace QvPen.Udon
             lineRenderer.widthMultiplier = widthMultiplier;
 
             meshCollider.sharedMesh = mesh;
-            meshCollider.GetComponent<MeshFilter>().sharedMesh = mesh;
+
+            colliderInstance.SetActive(true);
         }
-
-        #region Log
-
-        [HideInInspector]
-        public readonly string
-            appname = $"{nameof(QvPen)}.{nameof(QvPen.Udon)}.{nameof(QvPen.Udon.Pen)}";
-        [HideInInspector]
-        public string
-            version;
-        public TextAsset
-            versionText;
-
-        [SerializeField]
-        private bool
-            doWriteDebugLog = false;
-
-        private Color
-            C_APP = new Color(0xf2, 0x7d, 0x4a, 0xff) / 0xff,
-            C_LOG = new Color(0x00, 0x8b, 0xca, 0xff) / 0xff,
-            C_WAR = new Color(0xfe, 0xeb, 0x5b, 0xff) / 0xff,
-            C_ERR = new Color(0xe0, 0x30, 0x5a, 0xff) / 0xff;
-
-        private readonly string
-            CTagEnd = "</color>";
-
-        private void P(object o)
-        {
-            if (doWriteDebugLog)
-                Debug.Log($"[{CTag(C_APP)}{appname}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
-        }
-
-        private void P_LOG(object o)
-        {
-            Debug.Log($"[{CTag(C_APP)}{appname}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
-        }
-
-        private void P_WAR(object o)
-        {
-            Debug.LogWarning($"[{CTag(C_APP)}{appname}{CTagEnd}] {CTag(C_WAR)}{o}{CTagEnd}", this);
-        }
-
-        private void P_ERR(object o)
-        {
-            Debug.LogError($"[{CTag(C_APP)}{appname}{CTagEnd}] {CTag(C_ERR)}{o}{CTagEnd}", this);
-        }
-
-        private string CTag(Color c)
-        {
-            return $"<color=\"#{ToHtmlStringRGB(c)}\">";
-        }
-
-        private string ToHtmlStringRGB(Color c)
-        {
-            c *= 0xff;
-            return $"{Mathf.RoundToInt(c.r):x2}{Mathf.RoundToInt(c.g):x2}{Mathf.RoundToInt(c.b):x2}";
-        }
-
-        #endregion
     }
 }

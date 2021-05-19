@@ -38,7 +38,6 @@ namespace QvPen.Udon
             eraserLayer = settings.eraserLayer;
             inkPrefix = settings.inkPrefix;
             inkPoolName = settings.inkPoolName;
-            inkWidth = settings.inkWidth;
 
             gameObject.layer = eraserLayer;
 

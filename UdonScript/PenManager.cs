@@ -11,16 +11,25 @@ namespace QvPen.Udon
     public class PenManager : UdonSharpBehaviour
     {
         [SerializeField]
-        private Pen pen;
+        private Pen
+            pen;
 
-        public Gradient colorGradient = new Gradient();
+        public Gradient
+            colorGradient = new Gradient();
+
+        public float
+            inkWidth = 0.005f;
+
+        public Material
+            pcInkMaterial,
+            questInkMaterial;
 
         [SerializeField]
-        private GameObject respawnButton;
-        [SerializeField]
-        private GameObject clearButton;
-        [SerializeField]
-        private GameObject inUseUI;
+        private GameObject
+            respawnButton,
+            clearButton,
+            inUseUI;
+
         [SerializeField]
         private Text textInUse;
 
@@ -36,9 +45,7 @@ namespace QvPen.Udon
                 return;
 
             if (pen.IsHeld())
-            {
                 SendCustomNetworkEvent(NetworkEventTarget.All, nameof(StartUsing));
-            }
         }
 
         public override void OnPlayerLeft(VRCPlayerApi player)
@@ -47,9 +54,7 @@ namespace QvPen.Udon
                 return;
 
             if (!pen.IsHeld())
-            {
                 SendCustomNetworkEvent(NetworkEventTarget.All, nameof(EndUsing));
-            }
         }
 
         public void StartUsing()
@@ -93,105 +98,17 @@ namespace QvPen.Udon
         public Vector3[]
             syncPositions = new Vector3[0];
 
-        public void printps()
-        {
-            foreach (var p in syncPositions) P(p);
-        }
-
-        public override void OnPreSerialization()
-        {
-            P($"{nameof(OnPreSerialization)}()");
-            printps();
-        }
-
         public override void OnPostSerialization(SerializationResult result)
         {
-            P($"{nameof(OnPostSerialization)}(result: (success: {result.success}, byteCount{result.byteCount:#,0}))");
-
-            if (result.success)
-            {
-
-            }
-            else
-            {
-
-            }
+            if (!result.success)
+                pen.DestroyJustBeforeInk();
         }
 
         public override void OnDeserialization()
         {
-            P($"{nameof(OnDeserialization)}()");
-
-            printps();
-
             pen.CreateInkInstance(syncPositions);
         }
 
-        public override void OnOwnershipTransferred(VRCPlayerApi player)
-        {
-            P($"{nameof(OnOwnershipTransferred)}(player: {player.displayName})");
-        }
-
-        public override bool OnOwnershipRequest(VRCPlayerApi requestingPlayer, VRCPlayerApi requestedOwner)
-        {
-            P($"{nameof(OnOwnershipRequest)}(requestingPlayer: {requestingPlayer.displayName}, requestedOwner: {requestedOwner.displayName})");
-
-            return true;
-        }
-
         #endregion Network
-
-
-        #region Log
-
-        public readonly string
-            className = $"{nameof(QvPen)}.{nameof(QvPen.Udon)}.{nameof(QvPen.Udon.PenManager)}";
-
-        [SerializeField]
-        private bool
-            doWriteDebugLog = false;
-
-        private Color
-            C_APP = new Color(0xf2, 0x7d, 0x4a, 0xff) / 0xff,
-            C_LOG = new Color(0x00, 0x8b, 0xca, 0xff) / 0xff,
-            C_WAR = new Color(0xfe, 0xeb, 0x5b, 0xff) / 0xff,
-            C_ERR = new Color(0xe0, 0x30, 0x5a, 0xff) / 0xff;
-
-        private readonly string
-            CTagEnd = "</color>";
-
-        private void P(object o)
-        {
-            if (doWriteDebugLog)
-                Debug.Log($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
-        }
-
-        private void P_LOG(object o)
-        {
-            Debug.Log($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_LOG)}{o}{CTagEnd}", this);
-        }
-
-        private void P_WAR(object o)
-        {
-            Debug.LogWarning($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_WAR)}{o}{CTagEnd}", this);
-        }
-
-        private void P_ERR(object o)
-        {
-            Debug.LogError($"[{CTag(C_APP)}{className}{CTagEnd}] {CTag(C_ERR)}{o}{CTagEnd}", this);
-        }
-
-        private string CTag(Color c)
-        {
-            return $"<color=\"#{ToHtmlStringRGB(c)}\">";
-        }
-
-        private string ToHtmlStringRGB(Color c)
-        {
-            c *= 0xff;
-            return $"{Mathf.RoundToInt(c.r):x2}{Mathf.RoundToInt(c.g):x2}{Mathf.RoundToInt(c.b):x2}";
-        }
-
-        #endregion
     }
 }

@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Ink
+  m_Name: Ink_PC
   m_Shader: {fileID: 4800000, guid: 62d10ee450fd6014e996fd22f73c5baa, type: 3}
   m_ShaderKeywords: 0
   m_LightmapFlags: 0
